@@ -1,0 +1,12 @@
+{
+  "name": "crawler",
+  "alias": "crawler",
+  "description": "",
+  "keywords": [],
+  "priority": 100,
+  "namespace": "GateGem\\Crawler",
+  "providers": ["GateGem\\Crawler\\CrawlerServiceProvider"],
+  "aliases": {},
+  "files": [],
+  "requires": []
+}

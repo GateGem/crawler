@@ -1,0 +1,35 @@
+{
+  "name": "gategem/crawler",
+  "description": "",
+  "authors": [
+    {
+      "name": "Nguyen Van Hau",
+      "email": "nguyenvanhaudev@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "symfony/browser-kit": "^6.0",
+    "symfony/css-selector": "^6.2",
+    "symfony/dom-crawler": "^6.2",
+    "symfony/http-client": "^6.2",
+    "symfony/mime": "^6.2"
+  },
+  "require-dev": {
+    "symfony/phpunit-bridge": "6.2"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [],
+      "aliases": {}
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "GateGem\\Crawler\\": "src",
+      "GateGem\\Crawler\\Widget\\": "widgets",
+      "GateGem\\Crawler\\Database\\Factories\\": "database/factories",
+      "GateGem\\Crawler\\Database\\Seeders\\": "database/seeders"
+    }
+  }
+}
