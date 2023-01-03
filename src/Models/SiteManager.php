@@ -43,4 +43,5 @@ class SiteManager extends Model
         Crawler::checkKeyOrCreateTabale($this->key);
         return $this->hasManyTable(DataRawSite::class, 'domain_key', 'key', 'crawl_data_raw_site_manager_' . $this->key);
     }
+
 }

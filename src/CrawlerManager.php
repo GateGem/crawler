@@ -7,11 +7,48 @@ use GateGem\Crawler\Models\SiteManager;
 use GateGem\Crawler\Supports\Browser\Client;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use PhpParser\Node\Expr\FuncCall;
 use Symfony\Component\DomCrawler\Crawler as DomCrawlerBase;
 
 class CrawlerManager
 {
+    public function RemoveNode(DomCrawlerBase $crawler, $query, $onlyFirst = false)
+    {
+        if ($query != "") {
+            $crawler->filter($query)->each(function (DomCrawlerBase $crawler) use ($onlyFirst) {
+                foreach ($crawler as $node) {
+                    $node->parentNode->removeChild($node);
+                    if ($onlyFirst) {
+                        break;
+                    }
+                }
+            });
+        }
+
+        return $crawler;
+    }
+    public function RemoveLinkLocalNode(DomCrawlerBase $crawler)
+    {
+        $crawler->filter('a')->each(function (DomCrawlerBase $crawler) {
+            if (substr($crawler->attr('href'), 0, 4) != "http" && substr($crawler->attr('href'), 0, 1) != "#") {
+                $crawler->getNode(0)->setAttribute('href', '#');
+            }
+        });
+
+        return $crawler;
+    }
+    public function RemoveAdsAndFB(DomCrawlerBase $crawler)
+    {
+        $this->RemoveNode($crawler, '.lb-ad');
+        $this->RemoveNode($crawler, '#social-platforms');
+        $this->RemoveNode($crawler, '#fb-root');
+        $this->RemoveNode($crawler, 'script');
+    }
+
+    // Remove unwanted HTML comments
+    public function RemoveHtmlComments($content = '')
+    {
+        return preg_replace('/<!--(.|\s)*?-->/', '', $content);
+    }
     public function getDomFromHtml($html)
     {
         return new DomCrawlerBase($html);
@@ -53,12 +90,26 @@ class CrawlerManager
             return false;
         }
         $link_key = md5($link);
-        return DataRawSite::NewDataRawSite($domain_key)->where('link_key', $link_key)->exists();
+        return DataRawSite::NewDataRawSite($domain_key)->where('link_key', $link_key)->first();
+    }
+    public function getDataRawByDomain($link)
+    {
+        $parts = $this->getInfoFromLink($link);
+        $domain_key = md5($parts['host']);
+        $site =  SiteManager::where('key', $domain_key)->first();
+        if ($site)
+            return $site->DataRaw()->get();
+        return [];
     }
     public function insertLink($link)
     {
-        try{
-            if ($this->checkLink($link)) return null;
+        try {
+            $dataRaw = $this->checkLink($link);
+            if ($dataRaw) {
+                $siteDom = $this->getDomFromHtml($dataRaw->data_raw);
+                $links = $siteDom->filter('a');
+                return ['links' => [], 'dataRaw' => $dataRaw];
+            }
             $parts = $this->getInfoFromLink($link);
             $domain_key = md5($parts['host']);
             $site =  SiteManager::where('key', $domain_key)->first();
@@ -71,7 +122,7 @@ class CrawlerManager
             }
             $link_key = md5($link);
             $crawler = $this->getContentFromLink($link);
-    
+
             $keywords = $crawler->filter('meta[name="keywords"]')->first();
             $description = $crawler->filter('meta[name="description"]')->first();
             $titles = $crawler->filter('title')->first();
@@ -80,16 +131,20 @@ class CrawlerManager
             $links = $crawler->filter('a');
             $title = $titles->count() > 0 ? $titles->html() : "";
             $data_raw = $crawler->outerHtml();
-            $site->DataRaw()->updateOrCreate([
+            $dataRaw = $site->DataRaw()->updateOrCreate([
                 'link_key' => $link_key
             ], [
                 'domain_key' => $domain_key, 'domain_site' => $site->link_site, 'link_key' => $link_key, 'link' => $link,
                 'title' =>  $title, 'description' =>  $description, 'data_raw' =>  $data_raw,
             ]);
-            return $links;
-        }catch(\Exception $err){
+            return ['links' => $links, 'dataRaw' => $dataRaw];
+        } catch (\Exception $err) {
             return null;
         }
-        
+    }
+    public function getItemLink($link)
+    {
+        ['dataRaw' => $dataRaw] = $this->insertLink($link);
+        return $dataRaw;
     }
 }
