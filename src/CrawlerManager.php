@@ -11,30 +11,48 @@ use Symfony\Component\DomCrawler\Crawler as DomCrawlerBase;
 
 class CrawlerManager
 {
-    public function RemoveNode(DomCrawlerBase $crawler, $query, $onlyFirst = false)
+    public function setInnerHTML($element, $html)
+    {
+        $fragment = $element->ownerDocument->createDocumentFragment();
+        $fragment->appendXML($html);
+        $clone = $element->cloneNode(); // Get element copy without children
+        $clone->appendChild($fragment);
+        $element->parentNode->replaceChild($clone, $element);
+    }
+    public function FindAndCallback(DomCrawlerBase $crawler, $query, $onlyFirst = false, $callback = null)
     {
         if ($query != "") {
-            $crawler->filter($query)->each(function (DomCrawlerBase $crawler) use ($onlyFirst) {
-                foreach ($crawler as $node) {
-                    $node->parentNode->removeChild($node);
-                    if ($onlyFirst) {
-                        break;
+            $query = $crawler->filter($query);
+            if ($query->count() > 0) {
+                $query->each(function (DomCrawlerBase $crawler) use ($onlyFirst, $callback) {
+                    if ($crawler->count() > 0) {
+                        foreach ($crawler as $node) {
+                            if ($callback) $callback($node);
+                            if ($onlyFirst) {
+                                break;
+                            }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         return $crawler;
     }
+    public function RemoveNode(DomCrawlerBase $crawler, $query, $onlyFirst = false)
+    {
+        return $this->FindAndCallback($crawler, $query, $onlyFirst, function ($node) {
+            $node->parentNode->removeChild($node);
+        });
+    }
     public function RemoveLinkLocalNode(DomCrawlerBase $crawler)
     {
-        $crawler->filter('a')->each(function (DomCrawlerBase $crawler) {
-            if (substr($crawler->attr('href'), 0, 4) != "http" && substr($crawler->attr('href'), 0, 1) != "#") {
-                $crawler->getNode(0)->setAttribute('href', '#');
+        return $this->FindAndCallback($crawler, 'a', false, function ($node) {
+            $href = $node->getAttribute('href');
+            if (substr($href, 0, 4) != "http" && substr($href, 0, 1) != "#") {
+                $node->setAttribute('href', '#');
             }
         });
-
-        return $crawler;
     }
     public function RemoveAdsAndFB(DomCrawlerBase $crawler)
     {
@@ -142,7 +160,7 @@ class CrawlerManager
             return null;
         }
     }
-    public function getItemLink($link)
+    public function getItemByLink($link)
     {
         ['dataRaw' => $dataRaw] = $this->insertLink($link);
         return $dataRaw;
